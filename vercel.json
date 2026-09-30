@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npx prisma db push && next build",
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  }
+}

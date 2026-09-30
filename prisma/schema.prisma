@@ -1,0 +1,120 @@
+// Prisma Schema for Pairwise AI
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id              String   @id @default(cuid())
+  name            String
+  linkedinUrl     String?
+  instagramUrl    String?
+  isSynthetic     Boolean  @default(false)
+  avatarUrl       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  profile         Profile?
+  sessionsAsA     DatingSession[] @relation("PersonA")
+  sessionsAsB     DatingSession[] @relation("PersonB")
+  rankingsFor     Ranking[]       @relation("RankedFor")
+  rankingsAs      Ranking[]       @relation("RankedAs")
+  runLogs         RunLog[]
+}
+
+model Profile {
+  id                  String   @id @default(cuid())
+  personId            String   @unique
+  person              Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  
+  // Status
+  linkedinStatus      String   @default("pending")  // pending|fetching|success|failed|skipped
+  instagramStatus     String   @default("pending")
+  analysisStatus      String   @default("pending")  // pending|running|done|failed
+  
+  // Raw data
+  linkedinRaw         String?  // JSON blob
+  instagramRaw        String?  // JSON blob
+  
+  // Structured analysis (JSON blobs)
+  professionalBackground String?
+  hobbiesActivities      String?
+  preferences            String?
+  conversationStarters   String?
+  evidenceSources        String?
+  confidenceNotes        String?
+  summary                String?
+  
+  // Metadata
+  analysisError       String?
+  analyzedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model DatingSession {
+  id          String   @id @default(cuid())
+  personAId   String
+  personBId   String
+  personA     Person   @relation("PersonA", fields: [personAId], references: [id], onDelete: Cascade)
+  personB     Person   @relation("PersonB", fields: [personBId], references: [id], onDelete: Cascade)
+  
+  status      String   @default("pending")  // pending|running|done|failed
+  dialogue    String?  // JSON array of turns
+  summary     String?  // JSON structured summary
+  
+  sharedInterests     String?  // JSON array
+  differences         String?  // JSON array
+  unansweredQuestions String?  // JSON array
+  compatibilityScore  Float?
+  
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rankings    Ranking[]
+}
+
+model Ranking {
+  id              String   @id @default(cuid())
+  forPersonId     String
+  rankedPersonId  String
+  sessionId       String?
+  forPerson       Person   @relation("RankedFor", fields: [forPersonId], references: [id], onDelete: Cascade)
+  rankedPerson    Person   @relation("RankedAs", fields: [rankedPersonId], references: [id], onDelete: Cascade)
+  session         DatingSession? @relation(fields: [sessionId], references: [id])
+  
+  rank            Int
+  totalScore      Float
+  sharedInterestsScore  Float   @default(0)
+  preferenceScore       Float   @default(0)
+  lifestyleScore        Float   @default(0)
+  dateOutcomeScore      Float   @default(0)
+  uncertaintyPenalty    Float   @default(0)
+  
+  explanation     String?  // JSON explanation object
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([forPersonId, rankedPersonId])
+}
+
+model RunLog {
+  id        String   @id @default(cuid())
+  personId  String?
+  person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  
+  stage     String   // ingestion|analysis|dating|ranking
+  status    String   // running|success|failed|skipped
+  message   String?
+  details   String?  // JSON
+  
+  createdAt DateTime @default(now())
+}
